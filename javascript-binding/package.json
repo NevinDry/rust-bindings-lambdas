@@ -1,0 +1,18 @@
+{
+  "name": "fib-napi",
+  "version": "1.0.0",
+  "main": "index.mjs",
+  "type": "module",
+  "napi": {
+    "name": "fib-napi",
+    "targets": [
+      "x86_64-unknown-linux-gnu"
+    ]
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.5.1"
+  },
+  "scripts": {
+    "build": "napi build --platform --release"
+  }
+}
