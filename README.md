@@ -14,12 +14,15 @@ native-lambdas/                 ← Pure native implementations (no Rust)
 ├── python/                     ← Python native
 ├── javascript/                 ← JavaScript native (ESM)
 ├── java/                       ← Java native (Maven)
-└── csharp/                     ← C# native (.NET 8)
+└── csharp/                     ← C# native (.NET 10)
 
 python-binding/                 ← Python + Rust (PyO3 / Maturin)
 javascript-binding/             ← JavaScript + Rust (napi-rs)
 java-binding/                   ← Java + Rust (JNI)
 csharp-binding/                 ← C# + Rust (csbindgen / FFI)
+
+.agents/skills/                 ← Agent skills for coding agents (see below)
+.claude/skills/                 ← Symlinks so Claude Code picks up the same skills
 ```
 
 All binding projects reference `rust-lib/` via a Cargo path dependency — there is **no duplicated Rust code**.
@@ -28,10 +31,10 @@ All binding projects reference `rust-lib/` via a Cargo path dependency — there
 
 | Binding | Language | FFI Technology | Build Tool |
 |---------|----------|----------------|------------|
-| `python-binding` | Python 3.12 | [PyO3](https://pyo3.rs) | [Maturin](https://www.maturin.rs) |
-| `javascript-binding` | Node.js 20 | [napi-rs](https://napi.rs) | [@napi-rs/cli](https://www.npmjs.com/package/@napi-rs/cli) |
-| `java-binding` | Java 21 | [JNI](https://docs.rs/jni) | Cargo + Maven |
-| `csharp-binding` | .NET 8 | [csbindgen](https://github.com/Cysharp/csbindgen) | Cargo + dotnet |
+| `python-binding` | Python 3.14 | [PyO3](https://pyo3.rs) | [Maturin](https://www.maturin.rs) |
+| `javascript-binding` | Node.js 24 | [napi-rs](https://napi.rs) | [@napi-rs/cli](https://www.npmjs.com/package/@napi-rs/cli) |
+| `java-binding` | Java 25 | [JNI](https://docs.rs/jni) | Cargo + Maven |
+| `csharp-binding` | .NET 10 | [csbindgen](https://github.com/Cysharp/csbindgen) | Cargo + dotnet |
 
 ## Prerequisites
 
@@ -39,12 +42,12 @@ All binding projects reference `rust-lib/` via a Cargo path dependency — there
 |-------------|---------|---------------|
 | Rust | stable | [rustup.rs](https://rustup.rs) |
 | cargo-lambda | latest | [cargo-lambda.info](https://www.cargo-lambda.info/guide/installation.html) |
-| Python | 3.12+ | [python.org](https://www.python.org/downloads/) |
+| Python | 3.14 | [python.org](https://www.python.org/downloads/) |
 | Maturin | latest | [maturin.rs](https://www.maturin.rs/installation) |
-| Node.js | 20+ | [nodejs.org](https://nodejs.org/) |
-| Java JDK | 21+ | [adoptium.net](https://adoptium.net/) |
+| Node.js | 24+ | [nodejs.org](https://nodejs.org/) |
+| Java JDK | 21+ (25 recommended) | [adoptium.net](https://adoptium.net/) |
 | Maven | 3.9+ | [maven.apache.org](https://maven.apache.org/install.html) |
-| .NET SDK | 8.0+ | [dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/8.0) |
+| .NET SDK | 10.0+ | [dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/10.0) |
 | AWS CLI | v2 | [docs.aws.amazon.com](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html) |
 
 After installing Rust, install the additional tooling:
@@ -53,7 +56,20 @@ After installing Rust, install the additional tooling:
 cargo install cargo-lambda
 pipx install maturin        # or: pip install maturin
 npm install -g @napi-rs/cli
+rustup target add x86_64-unknown-linux-gnu   # cross-compile the Python binding for Lambda
 ```
+
+## Lambda runtimes
+
+| Function | Runtime |
+|----------|---------|
+| Rust native | `provided.al2023` |
+| Python native / Python + Rust | `python3.14` |
+| JavaScript native / JavaScript + Rust | `nodejs24.x` |
+| Java native / Java + Rust | `java25` (bytecode compiled for Java 21, runs unchanged on 25) |
+| C# native / C# + Rust | `dotnet10` |
+
+All runtimes are on Amazon Linux 2023 and supported until at least 2028 (see the [AWS Lambda runtimes table](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html)). `make deploy-*` without `CREATE=1` only updates code: to move an existing function to a new runtime, run `aws lambda update-function-configuration --function-name <name> --runtime <runtime>`.
 
 ## AWS Setup
 
@@ -145,4 +161,24 @@ All Lambda functions expect an API Gateway v2 event with a `queryStringParameter
 
 ```bash
 make clean
+```
+
+## Agent skills
+
+This repo ships [Agent Skills](https://agentskills.io) so coding agents (Claude Code, Codex, GitHub Copilot, Cursor, Kiro…) know how to work on it:
+
+| Skill | What it brings | Source |
+|-------|----------------|--------|
+| `aws-serverless` | AWS's official serverless guidance: Lambda, API Gateway, Step Functions, SAM / CDK, cold starts, troubleshooting | [aws/agent-toolkit-for-aws](https://github.com/aws/agent-toolkit-for-aws) @ `592c235`, Apache-2.0 |
+| `rust-skills` | 265 rules for idiomatic, fast and safe Rust | [leonardomso/rust-skills](https://github.com/leonardomso/rust-skills) @ `fd2a861`, MIT |
+
+The skills live in [`.agents/skills/`](.agents/skills); [`.claude/skills/`](.claude/skills) holds symlinks to them for Claude Code. Each folder keeps its upstream license. To refresh them, copy the folders again from the upstream repos.
+
+### Rust × Lambda plugin (Claude Code)
+
+[Emil Lindfors' `rust-lambda` plugin](https://github.com/EmilLindfors/claude-marketplace/tree/main/plugins/rust-lambda) adds cargo-lambda commands (new, build, deploy, cost and cold-start optimization) and a `rust-lambda-expert` agent. Its repository has no license file, so it is not copied here; install it in Claude Code:
+
+```
+/plugin marketplace add EmilLindfors/claude-marketplace
+/plugin install rust-lambda@lf-marketplace
 ```

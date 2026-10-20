@@ -40,18 +40,19 @@ deploy-lambda-native:
 deploy-python-binding:
 	cd python-binding && \
 	python3 -m venv .venv && . .venv/bin/activate && \
-	pip install maturin && \
-	maturin build --release && \
+	pip install maturin ziglang && \
+	rm -rf target/wheels && \
+	maturin build --release --target x86_64-unknown-linux-gnu --zig -i python3.14 && \
 	WHEEL=$$(ls target/wheels/*.whl | head -1) && \
 	mkdir -p /tmp/py-binding-pkg && rm -rf /tmp/py-binding-pkg/* && \
-	pip install "$$WHEEL" -t /tmp/py-binding-pkg && \
+	pip install "$$WHEEL" --platform manylinux2014_x86_64 --only-binary=:all: --python-version 3.14 -t /tmp/py-binding-pkg && \
 	cp lambda_function.py /tmp/py-binding-pkg/ && \
 	cd /tmp/py-binding-pkg && rm -f /tmp/fn.zip && zip -r /tmp/fn.zip . && \
 	if [ "$(CREATE)" = "1" ]; then \
 		aws lambda create-function \
 			--function-name $(FN_PYTHON_BINDING) \
 			--role $(ROLE) \
-			--runtime python3.12 \
+			--runtime python3.14 \
 			--handler lambda_function.handler \
 			--zip-file fileb:///tmp/fn.zip \
 			--timeout 60 --memory-size 256; \
@@ -69,7 +70,7 @@ deploy-js-binding:
 		aws lambda create-function \
 			--function-name $(FN_JS_BINDING) \
 			--role $(ROLE) \
-			--runtime nodejs20.x \
+			--runtime nodejs24.x \
 			--handler lambda.handler \
 			--zip-file fileb:///tmp/fn.zip \
 			--timeout 60 --memory-size 256; \
@@ -97,7 +98,7 @@ deploy-java-binding:
 		aws lambda create-function \
 			--function-name $(FN_JAVA_BINDING) \
 			--role $(ROLE) \
-			--runtime java21 \
+			--runtime java25 \
 			--handler FibHandler::handleRequest \
 			--zip-file fileb:///tmp/fn.zip \
 			--timeout 60 --memory-size 256 \
@@ -117,7 +118,7 @@ deploy-csharp-binding:
 		aws lambda create-function \
 			--function-name $(FN_CSHARP_BINDING) \
 			--role $(ROLE) \
-			--runtime dotnet8 \
+			--runtime dotnet10 \
 			--handler FibHandler::Function::Handler \
 			--zip-file fileb:///tmp/fn.zip \
 			--timeout 60 --memory-size 256; \
@@ -136,7 +137,7 @@ deploy-native-python:
 		aws lambda create-function \
 			--function-name $(FN_NATIVE_PYTHON) \
 			--role $(ROLE) \
-			--runtime python3.12 \
+			--runtime python3.14 \
 			--handler lambda_function.handler \
 			--zip-file fileb:///tmp/fn.zip \
 			--timeout 60 --memory-size 256; \
@@ -153,7 +154,7 @@ deploy-native-js:
 		aws lambda create-function \
 			--function-name $(FN_NATIVE_JS) \
 			--role $(ROLE) \
-			--runtime nodejs20.x \
+			--runtime nodejs24.x \
 			--handler index.handler \
 			--zip-file fileb:///tmp/fn.zip \
 			--timeout 60 --memory-size 256; \
@@ -174,7 +175,7 @@ deploy-native-java:
 		aws lambda create-function \
 			--function-name $(FN_NATIVE_JAVA) \
 			--role $(ROLE) \
-			--runtime java21 \
+			--runtime java25 \
 			--handler FibHandler::handleRequest \
 			--zip-file fileb:///tmp/fn.zip \
 			--timeout 60 --memory-size 256; \
@@ -192,7 +193,7 @@ deploy-native-csharp:
 		aws lambda create-function \
 			--function-name $(FN_NATIVE_CSHARP) \
 			--role $(ROLE) \
-			--runtime dotnet8 \
+			--runtime dotnet10 \
 			--handler FibNative::Function::Handler \
 			--zip-file fileb:///tmp/fn.zip \
 			--timeout 60 --memory-size 256; \
